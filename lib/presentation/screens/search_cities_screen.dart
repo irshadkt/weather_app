@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:weather_app/core/constants/cities_list.dart';
 import 'package:weather_app/data/models/city_model.dart';
+import 'package:weather_app/data/datasources/weather_local_data_source.dart';
+import 'package:weather_app/presentation/screens/recent_searches_screen.dart';
 
 class SearchCitiesScreen extends StatefulWidget {
   const SearchCitiesScreen({super.key});
@@ -11,12 +13,27 @@ class SearchCitiesScreen extends StatefulWidget {
 
 class _SearchCitiesScreenState extends State<SearchCitiesScreen> {
   final TextEditingController _searchController = TextEditingController();
+  late WeatherLocalDataSource _localDataSource;
   List<CityModel> _filteredCities = [];
+  List<String> _recentSearches = [];
+  List<CityModel> _recentSearchCities = [];
 
   @override
   void initState() {
     super.initState();
+    _localDataSource = WeatherLocalDataSource();
     _filteredCities = cities;
+    _loadRecentSearches();
+  }
+
+  void _loadRecentSearches() {
+    final searches = _localDataSource.getRecentSearches();
+    setState(() {
+      _recentSearches = searches.take(5).toList(); // Show only top 5
+      _recentSearchCities = cities
+          .where((city) => _recentSearches.contains(city.name))
+          .toList();
+    });
   }
 
   void _filterCities(String query) {
@@ -115,69 +132,177 @@ class _SearchCitiesScreenState extends State<SearchCitiesScreen> {
             ),
           ),
           Expanded(
-            child: _filteredCities.isEmpty
-                ? Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          Icons.location_off,
-                          size: 48,
-                          color: Colors.grey.shade600,
-                        ),
-                        const SizedBox(height: 16),
-                        Text(
-                          'No cities found',
-                          style: TextStyle(
-                            color: Colors.grey.shade400,
-                            fontSize: 16,
+            child: _searchController.text.isEmpty
+                ? (_recentSearchCities.isNotEmpty
+                    ? ListView(
+                        padding: const EdgeInsets.symmetric(horizontal: 8),
+                        children: [
+                          // Recent Searches Header
+                          Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 16,
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(
+                                  'Recent Searches',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                TextButton(
+                                  onPressed: () async {
+                                    final city =
+                                        await Navigator.push<CityModel>(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (context) =>
+                                            const RecentSearchesScreen(),
+                                      ),
+                                    );
+                                    if (city != null) {
+                                      Navigator.pop(context, city);
+                                    }
+                                  },
+                                  child: const Text(
+                                    'View All',
+                                    style: TextStyle(
+                                      color: Color(0xFF4FC3F7),
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
+                          // Recent Searches List
+                          ..._recentSearchCities.map((city) {
+                            return ListTile(
+                              contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 8,
+                              ),
+                              leading: Icon(
+                                Icons.history,
+                                color: const Color(0xFF4FC3F7),
+                                size: 20,
+                              ),
+                              title: Text(
+                                city.name,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              subtitle: Text(
+                                city.country,
+                                style: TextStyle(
+                                  color: Colors.grey.shade400,
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w400,
+                                ),
+                              ),
+                              trailing: Icon(
+                                Icons.chevron_right,
+                                color: Colors.grey.shade600,
+                                size: 20,
+                              ),
+                              onTap: () {
+                                Navigator.pop(context, city);
+                              },
+                            );
+                          }).toList(),
+                        ],
+                      )
+                    : Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.history,
+                              size: 48,
+                              color: Colors.grey.shade600,
+                            ),
+                            const SizedBox(height: 16),
+                            Text(
+                              'No recent searches',
+                              style: TextStyle(
+                                color: Colors.grey.shade400,
+                                fontSize: 16,
+                              ),
+                            ),
+                          ],
                         ),
-                      ],
-                    ),
-                  )
-                : ListView.builder(
-                    itemCount: _filteredCities.length,
-                    padding: const EdgeInsets.symmetric(horizontal: 8),
-                    itemBuilder: (context, index) {
-                      final city = _filteredCities[index];
-                      return ListTile(
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 8,
+                      ))
+                : (_filteredCities.isEmpty
+                    ? Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.location_off,
+                              size: 48,
+                              color: Colors.grey.shade600,
+                            ),
+                            const SizedBox(height: 16),
+                            Text(
+                              'No cities found',
+                              style: TextStyle(
+                                color: Colors.grey.shade400,
+                                fontSize: 16,
+                              ),
+                            ),
+                          ],
                         ),
-                        leading: Icon(
-                          Icons.location_on,
-                          color: const Color(0xFF4FC3F7),
-                          size: 20,
-                        ),
-                        title: Text(
-                          city.name,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        subtitle: Text(
-                          city.country,
-                          style: TextStyle(
-                            color: Colors.grey.shade400,
-                            fontSize: 14,
-                            fontWeight: FontWeight.w400,
-                          ),
-                        ),
-                        trailing: Icon(
-                          Icons.chevron_right,
-                          color: Colors.grey.shade600,
-                          size: 20,
-                        ),
-                        onTap: () {
-                          Navigator.pop(context, city);
+                      )
+                    : ListView.builder(
+                        itemCount: _filteredCities.length,
+                        padding: const EdgeInsets.symmetric(horizontal: 8),
+                        itemBuilder: (context, index) {
+                          final city = _filteredCities[index];
+                          return ListTile(
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 8,
+                            ),
+                            leading: Icon(
+                              Icons.location_on,
+                              color: const Color(0xFF4FC3F7),
+                              size: 20,
+                            ),
+                            title: Text(
+                              city.name,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            subtitle: Text(
+                              city.country,
+                              style: TextStyle(
+                                color: Colors.grey.shade400,
+                                fontSize: 14,
+                                fontWeight: FontWeight.w400,
+                              ),
+                            ),
+                            trailing: Icon(
+                              Icons.chevron_right,
+                              color: Colors.grey.shade600,
+                              size: 20,
+                            ),
+                            onTap: () {
+                              Navigator.pop(context, city);
+                            },
+                          );
                         },
-                      );
-                    },
-                  ),
+                      )),
           ),
         ],
       ),

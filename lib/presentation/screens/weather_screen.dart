@@ -7,6 +7,10 @@ import 'package:weather_app/presentation/providers/weather_bloc_event.dart';
 import 'package:weather_app/presentation/providers/weather_bloc_state.dart';
 import 'package:weather_app/presentation/widgets/weather_loading_shimmer.dart';
 import 'package:weather_app/presentation/screens/search_cities_screen.dart';
+import 'package:weather_app/presentation/screens/recent_searches_screen.dart';
+import 'package:weather_app/presentation/screens/settings_screen.dart';
+import 'package:weather_app/data/datasources/weather_local_data_source.dart';
+import 'package:weather_app/core/constants/cities_list.dart';
 
 class WeatherScreen extends StatefulWidget {
   const WeatherScreen({super.key});
@@ -17,12 +21,29 @@ class WeatherScreen extends StatefulWidget {
 
 class _WeatherScreenState extends State<WeatherScreen> {
   late TextEditingController cityController;
+  late WeatherLocalDataSource _localDataSource;
   String? currentCity;
+  List<String> _recentSearches = [];
+  List<CityModel> _recentSearchCities = [];
 
   @override
   void initState() {
     super.initState();
     cityController = TextEditingController();
+    _localDataSource = WeatherLocalDataSource();
+    _loadRecentSearches();
+    // Load cached weather data on app initialization
+    context.read<WeatherBloc>().add(const LoadCachedWeatherEvent());
+  }
+
+  void _loadRecentSearches() {
+    final searches = _localDataSource.getRecentSearches();
+    setState(() {
+      _recentSearches = searches.take(5).toList(); // Show only top 5
+      _recentSearchCities = cities
+          .where((city) => _recentSearches.contains(city.name))
+          .toList();
+    });
   }
 
   @override
@@ -32,14 +53,49 @@ class _WeatherScreenState extends State<WeatherScreen> {
   }
 
   String _getErrorMessage(String error) {
-    if (error.contains('404') || error.contains('not found')) {
-      return 'City not found. Please check the spelling and try again.';
-    } else if (error.contains('SocketException') ||
-        error.contains('No internet') ||
-        error.contains('No host')) {
-      return 'No internet connection. Showing cached data if available.';
-    } else {
-      return 'Something went wrong. Please try again later.';
+    final errorLower = error.toLowerCase();
+    
+    // City not found errors
+    if (errorLower.contains('404') || 
+        errorLower.contains('not found') ||
+        errorLower.contains('city not found')) {
+      return '❌ City not found. Please check the spelling and try again.';
+    } 
+    // No internet / connection errors
+    else if (errorLower.contains('socketexception') ||
+        errorLower.contains('no internet') ||
+        errorLower.contains('no host') ||
+        errorLower.contains('failed host lookup') ||
+        errorLower.contains('connection refused') ||
+        errorLower.contains('check your connection')) {
+      return '⚠️ No internet connection. Please check your internet and try again.';
+    } 
+    // Timeout errors
+    else if (errorLower.contains('timeout')) {
+      return '⏱️ Request timeout. The server took too long to respond. Please try again.';
+    } 
+    // Invalid input errors
+    else if (errorLower.contains('invalid') || 
+        errorLower.contains('malformed') ||
+        errorLower.contains('unexpected')) {
+      return '❌ Invalid city name. Please try again with a different name.';
+    } 
+    // Rate limiting
+    else if (errorLower.contains('rate limit') || 
+        errorLower.contains('too many requests')) {
+      return '⚠️ Too many requests. Please wait a moment and try again.';
+    } 
+    // Server errors
+    else if (errorLower.contains('status: 5') || errorLower.contains('internal error')) {
+      return '⚠️ Server error. Please try again later.';
+    }
+    // Generic error with truncation for very long errors
+    else {
+      String displayError = error;
+      if (error.length > 80) {
+        displayError = error.substring(0, 80) + '...';
+      }
+      return '❌ Error: $displayError';
     }
   }
 
@@ -87,7 +143,14 @@ class _WeatherScreenState extends State<WeatherScreen> {
         actions: [
           IconButton(
             icon: const Icon(Icons.settings),
-            onPressed: () {},
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const SettingsScreen(),
+                ),
+              );
+            },
           ),
         ],
       ),
@@ -155,31 +218,157 @@ class _WeatherScreenState extends State<WeatherScreen> {
             ),
             const SizedBox(height: 8),
             // Weather Content
-            BlocBuilder<WeatherBloc, WeatherState>(
-              builder: (context, state) {
-                if (state is WeatherInitial) {
-                  return Center(
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 32.0),
-                      child: Column(
-                        children: [
-                          Icon(
-                            Icons.cloud_queue,
-                            size: 64,
-                            color: Colors.grey.shade600,
-                          ),
-                          const SizedBox(height: 16),
-                          Text(
-                            'Search for a city to get weather',
-                            style: TextStyle(
-                              color: Colors.grey.shade400,
-                              fontSize: 16,
-                            ),
-                          ),
-                        ],
+            BlocListener<WeatherBloc, WeatherState>(
+              listener: (context, state) {
+                if (state is WeatherError) {
+                  // Show error snackbar
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(
+                        _getErrorMessage(state.message),
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 14,
+                        ),
+                      ),
+                      backgroundColor: Colors.red.shade700,
+                      duration: const Duration(seconds: 4),
+                      behavior: SnackBarBehavior.floating,
+                      margin: const EdgeInsets.all(16),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
                       ),
                     ),
                   );
+                }
+              },
+              child: BlocBuilder<WeatherBloc, WeatherState>(
+                builder: (context, state) {
+                if (state is WeatherInitial) {
+                  return _recentSearchCities.isNotEmpty
+                      ? ListView(
+                          padding: const EdgeInsets.symmetric(horizontal: 8),
+                          children: [
+                            // Recent Searches Header
+                            Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 16,
+                              ),
+                              child: Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(
+                                    'Recent Searches',
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                  TextButton(
+                                    onPressed: () async {
+                                      final city =
+                                          await Navigator.push<CityModel>(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (context) =>
+                                              const RecentSearchesScreen(),
+                                        ),
+                                      );
+                                      if (city != null && mounted) {
+                                        setState(() {
+                                          currentCity = city.name;
+                                          cityController.text = city.name;
+                                        });
+                                        // ignore: use_build_context_synchronously
+                                        context
+                                            .read<WeatherBloc>()
+                                            .add(FetchWeatherEvent(city.name));
+                                      }
+                                    },
+                                    child: const Text(
+                                      'View All',
+                                      style: TextStyle(
+                                        color: Color(0xFF4FC3F7),
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            // Recent Searches List
+                            ..._recentSearchCities.map((city) {
+                              return ListTile(
+                                contentPadding: const EdgeInsets.symmetric(
+                                  horizontal: 16,
+                                  vertical: 8,
+                                ),
+                                leading: Icon(
+                                  Icons.history,
+                                  color: const Color(0xFF4FC3F7),
+                                  size: 20,
+                                ),
+                                title: Text(
+                                  city.name,
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                subtitle: Text(
+                                  city.country,
+                                  style: TextStyle(
+                                    color: Colors.grey.shade400,
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w400,
+                                  ),
+                                ),
+                                trailing: Icon(
+                                  Icons.chevron_right,
+                                  color: Colors.grey.shade600,
+                                  size: 20,
+                                ),
+                                onTap: () {
+                                  setState(() {
+                                    currentCity = city.name;
+                                    cityController.text = city.name;
+                                  });
+                                  context
+                                      .read<WeatherBloc>()
+                                      .add(FetchWeatherEvent(city.name));
+                                },
+                              );
+                            }).toList(),
+                          ],
+                        )
+                      : Center(
+                          child: Padding(
+                            padding:
+                                const EdgeInsets.symmetric(vertical: 32.0),
+                            child: Column(
+                              children: [
+                                Icon(
+                                  Icons.cloud_queue,
+                                  size: 64,
+                                  color: Colors.grey.shade600,
+                                ),
+                                const SizedBox(height: 16),
+                                Text(
+                                  'Search for a city to get weather',
+                                  style: TextStyle(
+                                    color: Colors.grey.shade400,
+                                    fontSize: 16,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
                 } else if (state is WeatherLoading) {
                   return const Column(
                     children: [
@@ -222,12 +411,39 @@ class _WeatherScreenState extends State<WeatherScreen> {
                                         ),
                                       ),
                                       const SizedBox(height: 4),
-                                      Text(
-                                        'Today, ${DateFormat('d MMM').format(DateTime.now())}',
-                                        style: TextStyle(
-                                          fontSize: 12,
-                                          color: Colors.grey.shade400,
-                                        ),
+                                      Row(
+                                        children: [
+                                          Text(
+                                            'Today, ${DateFormat('d MMM').format(DateTime.now())}',
+                                            style: TextStyle(
+                                              fontSize: 12,
+                                              color: Colors.grey.shade400,
+                                            ),
+                                          ),
+                                          if (state.isCached) ...[
+                                            const SizedBox(width: 8),
+                                            Container(
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                horizontal: 8,
+                                                vertical: 2,
+                                              ),
+                                              decoration: BoxDecoration(
+                                                color: Colors.amber.shade700,
+                                                borderRadius:
+                                                    BorderRadius.circular(4),
+                                              ),
+                                              child: Text(
+                                                'Cached',
+                                                style: TextStyle(
+                                                  fontSize: 11,
+                                                  color: Colors.amber.shade50,
+                                                  fontWeight: FontWeight.w600,
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ],
                                       ),
                                     ],
                                   ),
@@ -374,7 +590,26 @@ class _WeatherScreenState extends State<WeatherScreen> {
                             ),
                           ),
                           TextButton(
-                            onPressed: () {},
+                            onPressed: () async {
+                              final city =
+                                  await Navigator.push<CityModel>(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) =>
+                                      const RecentSearchesScreen(),
+                                ),
+                              );
+                              if (city != null && mounted) {
+                                setState(() {
+                                  currentCity = city.name;
+                                  cityController.text = city.name;
+                                });
+                                // ignore: use_build_context_synchronously
+                                context
+                                    .read<WeatherBloc>()
+                                    .add(FetchWeatherEvent(city.name));
+                              }
+                            },
                             child: const Text(
                               'View all',
                               style: TextStyle(
@@ -387,16 +622,27 @@ class _WeatherScreenState extends State<WeatherScreen> {
                       ),
                       const SizedBox(height: 12),
                       // Recent Search Chips
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
-                        children: [
-                          _buildSearchChip('Kochi'),
-                          _buildSearchChip('London'),
-                          _buildSearchChip('New York'),
-                          _buildSearchChip('Tokyo'),
-                        ],
-                      ),
+                      if (_recentSearchCities.isNotEmpty)
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: _recentSearchCities.map((city) {
+                            return _buildSearchChip(city.name);
+                          }).toList(),
+                        )
+                      else
+                        Center(
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 16.0),
+                            child: Text(
+                              'No recent searches',
+                              style: TextStyle(
+                                color: Colors.grey.shade400,
+                                fontSize: 14,
+                              ),
+                            ),
+                          ),
+                        ),
                       const SizedBox(height: 32),
                       // Get Location Button
                       SizedBox(
@@ -577,7 +823,8 @@ class _WeatherScreenState extends State<WeatherScreen> {
 
                 return const SizedBox.shrink();
               },
-            ),
+            )
+            )
           ],
         ),
       ),

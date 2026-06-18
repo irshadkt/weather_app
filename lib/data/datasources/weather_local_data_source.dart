@@ -70,4 +70,6 @@ class WeatherLocalDataSource {
     final box = Hive.box(recentSearchesBoxName);
     return List<String>.from(box.get('searches', defaultValue: <String>[]));
   }
+
+  Box<dynamic> get recentSearchesBox => Hive.box(recentSearchesBoxName);
 }

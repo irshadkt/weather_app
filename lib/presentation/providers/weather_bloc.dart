@@ -9,6 +9,7 @@ class WeatherBloc extends Bloc<WeatherEvent, WeatherState> {
   WeatherBloc({required this.repository}) : super(const WeatherInitial()) {
     on<FetchWeatherEvent>(_onFetchWeather);
     on<RefreshWeatherEvent>(_onRefreshWeather);
+    on<LoadCachedWeatherEvent>(_onLoadCachedWeather);
   }
 
   Future<void> _onFetchWeather(
@@ -19,7 +20,7 @@ class WeatherBloc extends Bloc<WeatherEvent, WeatherState> {
 
     try {
       final weather = await repository.getWeather(event.city);
-      emit(WeatherLoaded(weather));
+      emit(WeatherLoaded(weather, isCached: false));
     } catch (e) {
       emit(WeatherError(e.toString()));
     }
@@ -33,9 +34,23 @@ class WeatherBloc extends Bloc<WeatherEvent, WeatherState> {
 
     try {
       final weather = await repository.getWeather(event.city);
-      emit(WeatherLoaded(weather));
+      emit(WeatherLoaded(weather, isCached: false));
     } catch (e) {
       emit(WeatherError(e.toString()));
+    }
+  }
+
+  Future<void> _onLoadCachedWeather(
+    LoadCachedWeatherEvent event,
+    Emitter<WeatherState> emit,
+  ) async {
+    try {
+      final cachedWeather = repository.getCachedWeather();
+      if (cachedWeather != null) {
+        emit(WeatherLoaded(cachedWeather, isCached: true));
+      }
+    } catch (e) {
+      // Silently fail if no cached weather
     }
   }
 }

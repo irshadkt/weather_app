@@ -21,3 +21,10 @@ class RefreshWeatherEvent extends WeatherEvent {
   @override
   List<Object?> get props => [city];
 }
+
+class LoadCachedWeatherEvent extends WeatherEvent {
+  const LoadCachedWeatherEvent();
+
+  @override
+  List<Object?> get props => [];
+}

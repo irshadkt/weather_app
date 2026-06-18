@@ -207,20 +207,3 @@ class WeatherLoadingShimmer extends StatelessWidget {
     );
   }
 }
-                  // Container(
-                  //   height: 14,
-                  //   width: 50,
-                  //   decoration: BoxDecoration(
-                  //     color: Colors.white,
-                  //     borderRadius: BorderRadius.circular(4),
-                  //   ),
-                  // ),
-//                 ],
-//               ),
-//             ],
-//           ),
-//         ],
-//       ),
-//     );
-//   }
-// }

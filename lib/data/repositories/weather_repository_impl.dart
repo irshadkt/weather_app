@@ -48,4 +48,9 @@ class WeatherRepositoryImpl implements WeatherRepository {
       rethrow;
     }
   }
+
+  @override
+  WeatherModel? getCachedWeather() {
+    return local.getCachedWeather();
+  }
 }
