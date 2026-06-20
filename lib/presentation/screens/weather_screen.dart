@@ -343,7 +343,7 @@ class _WeatherScreenState extends State<WeatherScreen> {
                                       .add(FetchWeatherEvent(city.name));
                                 },
                               );
-                            }).toList(),
+                            }),
                           ],
                         )
                       : Center(

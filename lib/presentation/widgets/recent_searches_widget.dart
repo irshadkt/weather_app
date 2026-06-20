@@ -1,29 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:hive/hive.dart';
+import 'package:weather_app/presentation/providers/recent_searches_bloc.dart';
+import 'package:weather_app/presentation/providers/recent_searches_bloc_event.dart';
+import 'package:weather_app/presentation/providers/recent_searches_bloc_state.dart';
 import 'package:weather_app/presentation/providers/weather_bloc.dart';
 import 'package:weather_app/presentation/providers/weather_bloc_event.dart';
 
-class RecentSearchesWidget extends StatefulWidget {
+class RecentSearchesWidget extends StatelessWidget {
   const RecentSearchesWidget({super.key});
-
-  @override
-  State<RecentSearchesWidget> createState() => _RecentSearchesWidgetState();
-}
-
-class _RecentSearchesWidgetState extends State<RecentSearchesWidget> {
-  late Box recentSearchesBox;
-
-  @override
-  void initState() {
-    super.initState();
-    recentSearchesBox = Hive.box('recentSearches');
-  }
-
-  List<String> _getSearches() {
-    return List<String>.from(
-        recentSearchesBox.get('searches', defaultValue: <String>[]));
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -37,39 +21,69 @@ class _RecentSearchesWidgetState extends State<RecentSearchesWidget> {
             style: Theme.of(context).textTheme.titleLarge,
           ),
         ),
-        Builder(
-          builder: (context) {
-            final searches = _getSearches();
+        BlocBuilder<RecentSearchesBloc, RecentSearchesState>(
+          builder: (context, state) {
+            if (state is RecentSearchesLoading) {
+              return const SizedBox(
+                height: 50,
+                child: Center(child: CircularProgressIndicator()),
+              );
+            }
 
-            if (searches.isEmpty) {
+            if (state is RecentSearchesError) {
               return Padding(
                 padding: const EdgeInsets.symmetric(vertical: 16.0),
                 child: Text(
-                  'No recent searches',
+                  'Error: ${state.message}',
                   style: Theme.of(context).textTheme.bodyMedium,
                 ),
               );
             }
 
-            return SizedBox(
-              height: 50,
-              child: ListView.builder(
-                scrollDirection: Axis.horizontal,
-                itemCount: searches.length,
-                itemBuilder: (context, index) {
-                  final city = searches[index];
-                  return Padding(
-                    padding: const EdgeInsets.only(right: 8.0),
-                    child: FilterChip(
-                      label: Text(city),
-                      onSelected: (_) {
-                        context
-                            .read<WeatherBloc>()
-                            .add(FetchWeatherEvent(city));
-                      },
-                    ),
-                  );
-                },
+            if (state is RecentSearchesLoaded) {
+              final searches = state.searches;
+
+              if (searches.isEmpty) {
+                return Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 16.0),
+                  child: Text(
+                    'No recent searches',
+                    style: Theme.of(context).textTheme.bodyMedium,
+                  ),
+                );
+              }
+
+              return SizedBox(
+                height: 50,
+                child: ListView.builder(
+                  scrollDirection: Axis.horizontal,
+                  itemCount: searches.length,
+                  itemBuilder: (context, index) {
+                    final city = searches[index];
+                    return Padding(
+                      padding: const EdgeInsets.only(right: 8.0),
+                      child: FilterChip(
+                        label: Text(city),
+                        onSelected: (_) {
+                          context
+                              .read<WeatherBloc>()
+                              .add(FetchWeatherEvent(city));
+                          context
+                              .read<RecentSearchesBloc>()
+                              .add(AddRecentSearchEvent(city));
+                        },
+                      ),
+                    );
+                  },
+                ),
+              );
+            }
+
+            return Padding(
+              padding: const EdgeInsets.symmetric(vertical: 16.0),
+              child: Text(
+                'No recent searches',
+                style: Theme.of(context).textTheme.bodyMedium,
               ),
             );
           },
