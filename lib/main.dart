@@ -7,8 +7,8 @@ import 'package:weather_app/core/theme/app_theme.dart';
 import 'package:weather_app/data/datasources/weather_remote_data_source.dart';
 import 'package:weather_app/data/datasources/weather_local_data_source.dart';
 import 'package:weather_app/data/repositories/weather_repository_impl.dart';
-import 'package:weather_app/presentation/providers/weather_bloc.dart';
-import 'package:weather_app/presentation/providers/recent_searches_bloc.dart';
+import 'package:weather_app/presentation/bloc/weatherDataBloc/weather_bloc.dart';
+import 'package:weather_app/presentation/bloc/recentSearchBloc/recent_searches_bloc.dart';
 import 'package:weather_app/presentation/screens/weather_screen.dart';
 
 void main() async {

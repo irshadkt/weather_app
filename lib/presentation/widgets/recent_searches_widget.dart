@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:weather_app/presentation/providers/recent_searches_bloc.dart';
-import 'package:weather_app/presentation/providers/recent_searches_bloc_event.dart';
-import 'package:weather_app/presentation/providers/recent_searches_bloc_state.dart';
-import 'package:weather_app/presentation/providers/weather_bloc.dart';
-import 'package:weather_app/presentation/providers/weather_bloc_event.dart';
+import 'package:weather_app/presentation/bloc/recentSearchBloc/recent_searches_bloc.dart';
+import 'package:weather_app/presentation/bloc/recentSearchBloc/recent_searches_bloc_event.dart';
+import 'package:weather_app/presentation/bloc/recentSearchBloc/recent_searches_bloc_state.dart';
+import 'package:weather_app/presentation/bloc/weatherDataBloc/weather_bloc.dart';
+import 'package:weather_app/presentation/bloc/weatherDataBloc/weather_bloc_event.dart';
 
 class RecentSearchesWidget extends StatelessWidget {
   const RecentSearchesWidget({super.key});

@@ -1,7 +1,7 @@
 import 'package:bloc/bloc.dart';
 import 'package:hive/hive.dart';
-import 'package:weather_app/presentation/providers/recent_searches_bloc_event.dart';
-import 'package:weather_app/presentation/providers/recent_searches_bloc_state.dart';
+import 'package:weather_app/presentation/bloc/recentSearchBloc/recent_searches_bloc_event.dart';
+import 'package:weather_app/presentation/bloc/recentSearchBloc/recent_searches_bloc_state.dart';
 
 class RecentSearchesBloc extends Bloc<RecentSearchesEvent, RecentSearchesState> {
   late Box recentSearchesBox;

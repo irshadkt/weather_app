@@ -3,6 +3,8 @@
 <plist version="1.0">
 <dict>
 	<key>CADisableMinimumFrameDurationOnPhone</key>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>This app needs access to location to show nearby content.</string>
 	<true/>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
